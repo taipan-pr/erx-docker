@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    ports:
+      - 4444:1433
+    environment: 
+      - SA_PASSWORD=Passw@rd
+      - ACCEPT_EULA=Y
+    
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - 9081:15672
+    expose: 
+      - 5672
+
+  seeder:
+    build:
+      context: .
+      dockerfile: src/Erx.Seeder/Dockerfile
+    image: erx-seeder:latest
+    restart: on-failure
+    depends_on: 
+      - mssql
+    environment: 
+      - SERVER=mssql
+      - SA_PASSWORD=Passw@rd
+    
+  consumer:
+    build:
+      context: .
+      dockerfile: src/Erx.Consumer/Dockerfile
+    image: erx-consumer:latest
+    restart: always
+    depends_on: 
+      - rabbitmq
+    environment: 
+      - HOST=rabbitmq
+      - PORT=5672
+      - MQ_USERNAME=guest
+      - PASSWORD=guest
+      - QUEUE=my-queue
+      - SERVER=mssql
+      - SA_PASSWORD=Passw@rd
+    
+  producer-web:
+    build:
+      context: .
+      dockerfile: src/Erx.Api/Dockerfile
+    image: erx-producer-web:latest
+    ports: 
+      - 9080:80
+    depends_on:
+      - rabbitmq
+    environment: 
+      - HOST=rabbitmq
+      - PORT=5672
+      - MQ_USERNAME=guest
+      - PASSWORD=guest
+      - QUEUE=my-queue
